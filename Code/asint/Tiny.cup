@@ -1,0 +1,409 @@
+package asint;
+
+import java_cup.runtime.*;
+
+import alex.AnalizadorLexicoTiny;
+import alex.UnidadLexica;
+import alex.TokenValue;
+
+import java.util.List;
+import java.util.ArrayList;
+
+import errors.GestionErroresTiny;
+
+import ast.*;
+
+
+scan with {: return getScanner().next_token(); :};
+
+action code {: private AS as = new AS(); :};
+
+parser code {: 
+   public void syntax_error(Symbol unidadLexica) {
+   	GestionErroresTiny.errorSintactico((UnidadLexica)unidadLexica);
+   }
+:};
+
+init with {: AnalizadorLexicoTiny alex = (AnalizadorLexicoTiny)getScanner(); :};
+
+terminal TokenValue INT, BOOL, FLOAT, CHAR, TRUE, FALSE, WHILE, IF, ELSE, FOR, RETURN, VOID, STRUCT, 
+SWITCH, CASE, BREAK, DEFAULT, PUNTO, DOSPUNTOS, PUNTOYCOMA, COMA, CA, CC, PA, PC, LLA, 
+LLC, MASMAS, MENOSMENOS, SUMA, RESTA, MULT, DIVE, DIVD, MOD, MAYOR, MENOR, MAI, MEI, IGIG, 
+DIST, NEG, AND, OR, IG, NEW, IDEN, ENTERO, REAL, CARACTER, ASIG, PROC, FUNC;
+
+non terminal E E, E0, E1, E2, E3, E4, E5, E6, E7, E8, New; 
+
+non terminal List<Instruccion> S, ListaFunc, ListaConValor, ListaDec;
+
+non terminal List<E> ListaArgums, ListaNoVacia, DeclaraArray;
+
+non terminal Instruccion Ins, InsIf, InsWhile, InsFor, InsDec, InsAsig, InsSwitch, InsStruct, 
+DeclaracionFunc, DeclaracionProc, InsLlamadaProc;
+
+non terminal Tipo Tipo;
+
+non terminal List<Case> ListaCases;
+
+S	::= 
+{:RESULT = new ArrayList<Instruccion>();:};
+S	::= Ins : ins S : lista
+{: lista.add(0,ins);
+RESULT = lista;:};
+
+E ::= E0 :exp
+{:RESULT = exp;:};
+E ::= New :exp
+{:RESULT = exp;:};
+
+E0  ::= E1 : exp1 OR : a E0 : exp2
+{:RESULT = as.or(exp1, exp2, a.getF(), a.getC());:};
+E0	::= E1 : exp
+{:RESULT = exp;:};
+
+E1  ::= E2 : exp1 AND : a E1 : exp2  
+{:RESULT = as.and(exp1, exp2, a.getF(), a.getC());:};
+E1	::= E2 : exp
+{:RESULT = exp;:};
+
+E2	::= E3 : exp1 DIST : a E3 : exp2 
+{:RESULT = as.dist(exp1, exp2, a.getF(), a.getC());:};
+E2	::= E3 : exp1 MEI : a E3 : exp2
+{:RESULT = as.mei(exp1, exp2, a.getF(), a.getC());:};
+E2	::=  E3 : exp1 MAI : a E3 : exp2
+{:RESULT = as.mai(exp1, exp2, a.getF(), a.getC());:};
+E2	::= E3 : exp1 MAYOR : a E3 : exp2
+{:RESULT = as.mayor(exp1, exp2, a.getF(), a.getC());:};
+E2	::= E3 : exp1 MENOR : a E3 : exp2 
+{:RESULT = as.menor(exp1, exp2, a.getF(), a.getC());:};
+E2	::= E3 : exp1 IGIG : a E3 : exp2
+{:RESULT = as.igig(exp1, exp2, a.getF(), a.getC());:};
+E2	::= E3 : exp
+{:RESULT = exp;:};
+
+E3	::= RESTA : a E4 : exp
+{:RESULT = as.menos(exp, a.getF(), a.getC());:};
+E3	::= SUMA : a E4 : exp
+{:RESULT = as.mas(exp, a.getF(), a.getC());:};
+E3	::= E4 : exp
+{:RESULT = exp;:};
+
+E4	::= E4 : exp1 SUMA : a E5 : exp2 
+{:RESULT = as.suma(exp1, exp2, a.getF(), a.getC());:};
+E4	::= E4 : exp1 RESTA : a E5 : exp2 
+{:RESULT = as.resta(exp1, exp2, a.getF(), a.getC());:};
+E4	::= E5 : exp 
+{:RESULT = exp;:};
+
+E5	::= E5 : exp1 MULT : a E6 : exp2
+{:RESULT = as.mul(exp1, exp2, a.getF(), a.getC());:};
+E5	::= E5 : exp1 DIVE : a E6 : exp2
+{:RESULT = as.divE(exp1, exp2, a.getF(), a.getC());:};
+E5	::= E5 : exp1 DIVD : a E6 : exp2
+{:RESULT = as.divD(exp1, exp2, a.getF(), a.getC());:};
+E5	::= E5 : exp1 MOD : a E6 : exp2
+{:RESULT = as.mod(exp1, exp2, a.getF(), a.getC());:};
+E5	::= E6 : exp
+{:RESULT = exp;:};
+
+E6	::= NEG : a E6 : exp
+{:RESULT = as.neg(exp, a.getF(), a.getC());:};
+E6	::= E7 : exp
+{:RESULT = exp;:};
+
+E7	::= E7 : exp1 CA : a E0 : exp2 CC 
+{:RESULT = as.corchetes(exp1, exp2, a.getF(), a.getC());:};
+E7	::= E7 : exp1 PUNTO : a IDEN : exp2
+{:RESULT = as.punto(exp1, as.iden(exp2.getLex(), exp2.getF(), exp2.getC()), a.getF(), a.getC());:};
+E7	::=  E8 : exp
+{:RESULT = exp;:};
+E7	::=  MULT : a E8 : exp
+{:RESULT = as.asterisco(exp, a.getF(), a.getC());:};
+
+E8	::= ENTERO : a
+{:RESULT = as.ent(a.getLex(), a.getF(), a.getC());:};
+E8	::= REAL : a
+{:RESULT = as.real(a.getLex(), a.getF(), a.getC());:};
+E8	::= CARACTER : a
+{:RESULT = as.car(a.getLex(), a.getF(), a.getC());:};
+E8	::= TRUE : a
+{:RESULT = as.verdad(a.getF(), a.getC());:};
+E8	::= FALSE : a
+{:RESULT = as.falso(a.getF(), a.getC());:};
+E8	::= PA E0 : exp PC 
+{:RESULT = exp;:};
+E8	::= IDEN : exp PA ListaArgums : lista PC
+{:RESULT = as.llamadaFunc(as.iden(exp.getLex(), exp.getF(), exp.getC()), lista, exp.getF(), exp.getC());:};
+E8	::= IDEN : exp
+{:RESULT = as.iden(exp.getLex(), exp.getF(), exp.getC());:};
+ListaArgums ::= ListaNoVacia : lista
+{:RESULT = lista;:};
+ListaArgums ::= 
+{:RESULT = new ArrayList<E>();:};
+ListaNoVacia ::= E0 : exp COMA ListaNoVacia : lista
+{:lista.add(0, exp);
+RESULT = lista;:};
+ListaNoVacia ::= E0 : exp
+{:List<E> lista = new ArrayList<E>();
+lista.add(0, exp);
+RESULT = lista;:};
+
+Ins	::= IDEN : exp MASMAS : a PUNTOYCOMA
+{:RESULT = as.insMasmas(as.iden(exp.getLex(), exp.getF(), exp.getC()), exp.getF(), exp.getC());:};
+Ins	::= IDEN : exp MENOSMENOS PUNTOYCOMA
+{:RESULT = as.insMenosmenos(as.iden(exp.getLex(), exp.getF(), exp.getC()), exp.getF(), exp.getC());:};
+
+Ins ::= InsLlamadaProc : exp
+{:RESULT = exp;:};
+InsLlamadaProc ::= PROC IDEN : exp PA ListaArgums : lista PC PUNTOYCOMA
+{:RESULT = as.insLlamadaProc(as.iden(exp.getLex(), exp.getF(), exp.getC()), lista, exp.getF(), exp.getC());:};
+
+Ins ::= InsIf : exp
+{:RESULT = exp;:};
+InsIf ::= IF : a PA E0 : exp PC LLA S : lista LLC 
+{:RESULT = as.insIf(exp, lista, a.getF(), a.getC());:};
+InsIf ::= IF : a PA E0 : exp PC LLA S : listaif LLC ELSE LLA S : listaelse LLC
+{:RESULT = as.insIf(exp, listaif, listaelse, a.getF(), a.getC());:};
+
+Ins	::= InsWhile : exp
+{:RESULT = exp;:};
+InsWhile ::= WHILE : a PA E0 : cond PC LLA S : cuerpo LLC
+{:RESULT = as.insWhile(cond, cuerpo, a.getF(), a.getC());:};
+
+Ins	::= InsAsig : exp
+{:RESULT = exp;:};
+InsAsig ::= ASIG E0 : exp1 IG : a E0 : exp2 PUNTOYCOMA 
+{:RESULT = as.insAsig(exp1, null, exp2, a.getF(), a.getC());:};
+
+Tipo ::= INT : a DeclaraArray : lista
+{:RESULT = as.tipo("int", lista, null, a.getF(), a.getC());:};
+Tipo ::= INT : a  DeclaraArray : lista LLA E0 : exp LLC
+{:RESULT = as.tipo("int", lista, exp, a.getF(), a.getC());:};
+Tipo ::= BOOL : a  DeclaraArray : lista
+{:RESULT = as.tipo("bool", lista, null, a.getF(), a.getC());:};
+Tipo ::= BOOL : a  DeclaraArray : lista LLA E0 : exp LLC
+{:RESULT = as.tipo("bool", lista, exp, a.getF(), a.getC());:};
+Tipo ::= FLOAT : a  DeclaraArray : lista
+{:RESULT = as.tipo("float", lista, null, a.getF(), a.getC());:};
+Tipo ::= FLOAT : a  DeclaraArray : lista LLA E0 : exp LLC
+{:RESULT = as.tipo("float", lista, exp, a.getF(), a.getC());:};
+Tipo ::= CHAR : a  DeclaraArray : lista
+{:RESULT = as.tipo("char", lista, null, a.getF(), a.getC());:};
+Tipo ::= CHAR : a  DeclaraArray : lista LLA E0 : exp LLC
+{:RESULT = as.tipo("char", lista, exp, a.getF(), a.getC());:};
+Tipo ::= IDEN : exp DeclaraArray : lista
+{:RESULT = as.tipo(exp.getLex(), lista, null, exp.getF(), exp.getC());:};
+Tipo ::= IDEN : exp1 DeclaraArray : lista LLA E0 : exp2 LLC
+{:RESULT = as.tipo(exp1.getLex(), lista, exp2, exp1.getF(), exp1.getC());:};
+Tipo ::= Tipo : tipo MULT
+{: tipo.setEsPuntero(true);
+RESULT = tipo;:};
+
+Ins	::= InsDec : exp
+{:RESULT = exp;:};
+InsDec ::= Tipo : exp1 IDEN : exp2 IG E : exp3 PUNTOYCOMA
+{:RESULT = as.insDec(exp1, as.iden(exp2.getLex(), exp2.getF(), exp2.getC()), exp3, exp2.getF(), exp2.getC());:};
+InsDec ::= Tipo : exp1 IDEN : exp2 PUNTOYCOMA
+{:RESULT = as.insDec(exp1, as.iden(exp2.getLex(), exp2.getF(), exp2.getC()), exp2.getF(), exp2.getC());:};
+
+New ::= NEW: nuevo
+{: RESULT = as.nuevo(nuevo.getF(), nuevo.getC()); :};
+
+Ins	::= InsFor : exp
+{:RESULT = exp;:};
+InsFor ::= FOR : a PA Tipo : exp1 IDEN : exp2 IG E0 : exp3 PUNTOYCOMA E0 : exp4 PUNTOYCOMA IDEN : exp5 IG E0 : exp6 PC LLA S : exp7 LLC
+{:RESULT = as.insFor(as.insDec(exp1, as.iden(exp2.getLex(), exp2.getF(), exp2.getC()), exp3, a.getF(), a.getC()), exp4, as.insAsig(as.iden(exp5.getLex(), exp5.getF(), exp5.getC()), null, exp6, a.getF(), a.getC()), exp7, a.getF(), a.getC());:};
+InsFor ::= FOR : a PA IDEN : exp1 IG E0 : exp2 PUNTOYCOMA E0 : exp3 PUNTOYCOMA IDEN : exp4 IG E0 : exp5 PC LLA S : exp6 LLC
+{:RESULT = as.insFor(as.insAsig(as.iden(exp1.getLex(), exp1.getF(), exp1.getC()), null, exp2, a.getF(), a.getC()), exp3, as.insAsig(as.iden(exp4.getLex(), exp4.getF(), exp4.getC()), null, exp5, a.getF(), a.getC()), exp6, a.getF(), a.getC());:};
+InsFor ::= FOR : a PA Tipo : exp1 IDEN : exp2 IG E0 : exp3 PUNTOYCOMA E0 : exp4 PUNTOYCOMA IDEN : exp5 MASMAS PC LLA S : exp6 LLC
+{:RESULT = as.insFor(as.insDec(exp1, as.iden(exp2.getLex(), exp2.getF(), exp2.getC()), exp3, a.getF(), a.getC()), exp4, as.insMasmas(as.iden(exp5.getLex(), exp5.getF(), exp5.getC()), a.getF(), a.getC()), exp6, a.getF(), a.getC());:};
+InsFor ::= FOR : a PA Tipo : exp1 IDEN : exp2 IG E0 : exp3 PUNTOYCOMA E0 : exp4 PUNTOYCOMA IDEN : exp5 MENOSMENOS PC LLA S : exp6 LLC
+{:RESULT = as.insFor(as.insDec(exp1, as.iden(exp2.getLex(), exp2.getF(), exp2.getC()), exp3, a.getF(), a.getC()), exp4, as.insMenosmenos(as.iden(exp5.getLex(), exp5.getF(), exp5.getC()), a.getF(), a.getC()), exp6, a.getF(), a.getC());:};
+InsFor ::= FOR : a PA IDEN : exp1 IG E0 : exp2 PUNTOYCOMA E0 : exp3 PUNTOYCOMA IDEN : exp4 MASMAS PC LLA S : exp5 LLC
+{:RESULT = as.insFor(as.insAsig(as.iden(exp1.getLex(), exp1.getF(), exp1.getC()), null, exp2, a.getF(), a.getC()), exp3, as.insMasmas(as.iden(exp4.getLex(), exp4.getF(), exp4.getC()), a.getF(), a.getC()), exp5, a.getF(), a.getC());:};
+InsFor ::= FOR : a PA IDEN : exp1 IG E0 : exp2 PUNTOYCOMA E0 : exp3 PUNTOYCOMA IDEN : exp4 MENOSMENOS PC LLA S : exp5 LLC
+{:RESULT = as.insFor(as.insAsig(as.iden(exp1.getLex(), exp1.getF(), exp1.getC()), null, exp2, a.getF(), a.getC()), exp3, as.insMenosmenos(as.iden(exp4.getLex(), exp4.getF(), exp4.getC()), a.getF(), a.getC()), exp5, a.getF(), a.getC());:};
+
+Ins	::= InsSwitch : exp
+{:RESULT = exp;:};
+InsSwitch ::= SWITCH : a PA IDEN : exp1 PC LLA ListaCases : lista LLC
+{:RESULT = as.insSwitch(as.iden(exp1.getLex(), exp1.getF(), exp1.getC()), lista, a.getF(), a.getC());:};
+ListaCases ::= CASE : a E0 : exp1 DOSPUNTOS S : exp2 BREAK PUNTOYCOMA ListaCases : lista
+{:lista.add(0, as.creaCase(exp1, exp2, a.getF(), a.getC()));
+RESULT = lista;:};
+ListaCases ::= DEFAULT : a DOSPUNTOS S : exp
+{:ArrayList<Case> lista = new ArrayList<Case>();
+lista.add(as.creaCase(null, exp, a.getF(), a.getC()));
+RESULT = lista;:};
+
+Ins	::= DeclaracionFunc : exp
+{:RESULT = exp;:};
+DeclaracionFunc ::= FUNC Tipo : exp1 IDEN : exp2 PA ListaFunc : lista PC LLA S : exp3 RETURN E0 : exp4 PUNTOYCOMA LLC
+{:RESULT = as.insDecFunc(exp1, as.iden(exp2.getLex(), exp2.getF(), exp2.getC()), lista, exp3, exp4, exp2.getF(), exp2.getC());:};
+ListaFunc ::= ListaConValor : lista
+{:RESULT = lista;:};
+ListaFunc ::= 
+{:RESULT = new ArrayList<Instruccion>();:};
+ListaConValor ::= Tipo : exp1 IDEN : exp2 COMA ListaConValor : lista 
+{:lista.add(0, as.insDec(exp1, as.iden(exp2.getLex(), exp2.getF(), exp2.getC()), exp2.getF(), exp2.getC()));
+RESULT = lista;:};
+ListaConValor ::= Tipo : exp1 IDEN : exp2
+{:ArrayList<Instruccion> lista = new ArrayList<Instruccion>();
+lista.add(as.insDec(exp1, as.iden(exp2.getLex(), exp2.getF(), exp2.getC()), exp2.getF(), exp2.getC()));
+RESULT = lista;:};
+
+Ins	::= DeclaracionProc : exp
+{:RESULT = exp;:};
+DeclaracionProc ::= VOID : a IDEN : exp1 PA ListaFunc : lista PC LLA S : exp2 LLC
+{:RESULT = as.insDecProc(as.iden(exp1.getLex(), exp1.getF(), exp1.getC()), lista, exp2, a.getF(), a.getC());:};
+
+Ins	::= InsStruct: exp
+{:RESULT = exp;:};
+InsStruct ::= STRUCT : a IDEN : exp LLA ListaDec : lista LLC PUNTOYCOMA
+{:RESULT = as.insStruct(as.iden(exp.getLex(), exp.getF(), exp.getC()), lista, a.getF(), a.getC());:};
+ListaDec ::= InsDec : exp ListaDec : lista
+{:lista.add(0, exp);
+RESULT = lista;:};
+ListaDec ::= 
+{:RESULT = new ArrayList<Instruccion>();:};
+
+DeclaraArray ::= PA LLA ENTERO : exp LLC PC DeclaraArray : lista
+{:lista.add(0, new Ent(exp.getLex(), exp.getF(), exp.getC()));
+RESULT = lista;:};
+DeclaraArray ::= 
+{:RESULT = new ArrayList<E>();:};
+
+InsIf ::= IF error LLC
+{: System.err.println("Error en la condición del if\n"); 
+RESULT = null; :};
+
+InsIf ::= IF E0 error LLC
+{: System.err.println("Error en el cuerpo del if/else\n"); 
+RESULT = null; :};
+
+InsWhile ::= WHILE error LLC
+{: System.err.println("Error en la condición del while\n"); 
+RESULT = null; :};
+
+InsWhile ::= WHILE E0 error LLC
+{: System.err.println("Error en el cuerpo del while\n"); 
+RESULT = null; :};
+
+InsFor ::= FOR PA error LLC
+{: System.err.println("Error en el paréntesis del for\n");
+RESULT = null; :};
+
+InsFor ::= FOR PA Tipo IDEN IG E0 PUNTOYCOMA E0 PUNTOYCOMA IDEN IG E0 PC error LLC
+{: System.err.println("Error en el cuerpo del for\n");
+RESULT = null; :};
+
+InsFor ::= FOR PA IDEN IG E0 PUNTOYCOMA E0 PUNTOYCOMA IDEN IG E0 PC error LLC
+{: System.err.println("Error en el cuerpo del for\n");
+RESULT = null; :};
+
+InsFor ::= FOR PA Tipo IDEN IG E0 PUNTOYCOMA E0 PUNTOYCOMA IDEN MASMAS PC error LLC
+{: System.err.println("Error en el cuerpo del for\n");
+RESULT = null; :};
+
+InsFor ::= FOR PA Tipo IDEN IG E0 PUNTOYCOMA E0 PUNTOYCOMA IDEN MENOSMENOS PC error LLC
+{: System.err.println("Error en el cuerpo del for\n");
+RESULT = null; :};
+
+InsFor ::= FOR PA IDEN IG E0 PUNTOYCOMA E0 PUNTOYCOMA IDEN MASMAS PC error LLC
+{: System.err.println("Error en el cuerpo del for\n");
+RESULT = null; :};
+
+InsFor ::= FOR PA IDEN IG E0 PUNTOYCOMA E0 PUNTOYCOMA IDEN MENOSMENOS PC error LLC
+{: System.err.println("Error en el cuerpo del for\n");
+RESULT = null; :};
+
+InsDec ::= Tipo error PUNTOYCOMA
+{: System.err.println("Error en la declaración. Identificador no reconocido \n"); 
+RESULT = null; :};
+
+InsDec ::= Tipo IDEN PA error LLC
+{: System.err.println("Error en la declaración de función: falta la palabra func \n"); 
+RESULT = null; :};
+
+InsDec ::= Tipo IDEN  IG error PUNTOYCOMA
+{: System.err.println("Error en el valor inicial de la declaración\n"); 
+RESULT = null; :};
+
+InsAsig ::=  ASIG error PUNTOYCOMA
+{: System.err.println("Error en una asignación \n");
+RESULT = null; :};
+
+InsLlamadaProc ::=  PROC error PUNTOYCOMA
+{: System.err.println("Error en una llamada a procedimiento \n");
+RESULT = null; :};
+
+InsSwitch ::= SWITCH error LLC
+{: System.err.println("Error en el switch\n"); 
+RESULT = null; :};
+
+ListaCases ::= CASE error PUNTOYCOMA
+{: System.err.println("Error en el valor del case\n");
+RESULT = null; :};
+
+ListaCases ::= CASE E0 DOSPUNTOS error PUNTOYCOMA
+{: System.err.println("Error en el cuerpo del case o falta de break\n");
+RESULT = null; :};
+
+ListaCases ::= DEFAULT error PUNTOYCOMA
+{: System.err.println("Error en el cuerpo del default\n");
+RESULT = null; :};
+
+DeclaracionFunc ::= FUNC error LLC
+{: System.err.println("Error en el tipo de declaración de la función \n");
+RESULT = null; :};
+	
+DeclaracionFunc ::= FUNC Tipo error LLC
+{: System.err.println("Error en el nombre de la funcion \n");
+RESULT = null; :};
+	
+DeclaracionFunc ::= FUNC Tipo IDEN error LLC
+{: System.err.println("Error en los parámetros de la función \n");
+RESULT = null; :};
+
+DeclaracionFunc ::= FUNC Tipo IDEN PA ListaFunc PC error LLC
+{: System.err.println("Error en el cuerpo de la función \n");
+RESULT = null; :};
+
+DeclaracionProc ::= VOID error LLC
+{: System.err.println("Error en el nombre del procedimiento \n");
+RESULT = null; :};
+	
+DeclaracionProc ::= VOID IDEN error LLC
+{: System.err.println("Error en los parámetros del procedimiento \n");
+RESULT = null; :};
+
+DeclaracionProc ::= VOID IDEN PA ListaFunc PC error LLC
+{: System.err.println("Error en el cuerpo del procedimiento \n");
+RESULT = null; :};
+
+InsStruct ::= STRUCT error PUNTOYCOMA
+{: System.err.println("Error de nombre del el struct \n"); 
+RESULT = null; :};
+
+InsStruct ::= STRUCT IDEN error LLC
+{: System.err.println("Error en algún campo del struct \n"); 
+RESULT = null; :};
+
+Tipo ::= IDEN PA LLA error PUNTOYCOMA
+{: System.err.println("Error en la declaración de un array\n"); 
+RESULT = null; :};
+
+Tipo ::= INT PA LLA error PUNTOYCOMA
+{: System.err.println("Error en la declaración de un array\n"); 
+RESULT = null; :};
+
+Tipo ::= BOOL PA LLA error PUNTOYCOMA
+{: System.err.println("Error en la declaración de un array\n"); 
+RESULT = null; :};
+
+Tipo ::= CHAR PA LLA error PUNTOYCOMA
+{: System.err.println("Error en la declaración de un array\n"); 
+RESULT = null; :};
+
+Tipo ::= FLOAT PA LLA error PUNTOYCOMA
+{: System.err.println("Error en la declaración de un array\n"); 
+RESULT = null; :};
